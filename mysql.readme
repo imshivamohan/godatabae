@@ -1,0 +1,50 @@
+I'll create a comprehensive database library for Go with the features you've described. I'll break this down into multiple files to create a modular and flexible database connection library.
+
+First, let's create the config artifact:
+
+Database Configuration ExampleClick to open document
+
+Now, let's create the database connection module:
+
+Database Connection ModuleClick to open code
+
+Let's create a sample main.go to demonstrate usage:
+
+Main Application ExampleClick to open code
+To use this database module, you'll need to install the following dependencies:
+bashCopygo get github.com/rs/zerolog
+go get gopkg.in/yaml.v3
+go get github.com/go-sql-driver/mysql
+go get github.com/lib/pq
+go get github.com/mattn/go-sqlite3
+Key Features:
+
+Supports multiple database drivers (MySQL, PostgreSQL, SQLite)
+Configuration via YAML file
+Connection pooling configuration
+Flexible logging with zerolog
+Easy-to-use query methods
+Automatic connection management
+
+How to Use:
+
+Create a config.yaml file with your database configuration
+Import the database module
+Call NewDatabaseConnection() with the path to your config
+Use the returned DatabaseConnection to execute queries
+
+Configuration Options:
+
+Choose database driver
+Configure connection pool settings
+Set logging level and output path
+Specify database connection details
+
+Logging Levels:
+
+info: Default logging
+debug: Detailed logging for development
+error: Only log errors
+
+This implementation provides a flexible, robust database connection module that can be easily integrated into any Go project.
+Would you like me to elaborate on any part of the implementation or explain any specific aspect of the database module?
