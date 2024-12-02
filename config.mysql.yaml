@@ -1,0 +1,19 @@
+Database Configuration Example
+
+# config.yaml
+database:
+  driver: mysql  # Supported drivers: mysql, postgres, sqlite
+  host: localhost
+  port: 3306
+  username: myuser
+  password: mypassword
+  database: mydb
+  
+connection_pool:
+  max_open_connections: 25
+  max_idle_connections: 10
+  max_connection_lifetime: 5m  # 5 minutes
+  
+logger:
+  level: info  # info, debug, error
+  output_path: ./logs/database.log
