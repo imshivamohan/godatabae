@@ -1,4 +1,3 @@
-```go
 package database
 
 import (
@@ -260,4 +259,3 @@ func (dc *DatabaseConnection) Exec(query string, args ...interface{}) (sql.Resul
 
 	return result, nil
 }
-```
