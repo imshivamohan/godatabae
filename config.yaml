@@ -1,0 +1,16 @@
+database:
+  driver: "postgres"          # Options: postgres, mysql, sqlite, etc.
+  host: "localhost"           # Host for PostgreSQL or MySQL
+  port: 5432                  # Port for PostgreSQL (use 3306 for MySQL)
+  username: "postgres"        # Database username
+  password: "password"        # Database password
+  dbname: "test_db"           # Database name
+  sslmode: "disable"          # PostgreSQL specific
+  filepath: "test.db"         # SQLite specific, ignored for other databases
+  log_level: "info"           # Log levels: debug, info, warn, error
+  dbschema: "public"          # Database schema
+  pool:
+    max_open_conns: 10        # Max open connections
+    max_idle_conns: 5         # Max idle connections
+    conn_max_lifetime: "300s" # Max lifetime of connections (in seconds)
+    conn_max_idle_time: "60s" # Max idle time for connections (in seconds)
