@@ -1,0 +1,96 @@
+Database Package
+This Go package provides a robust utility for managing database connections and interacting with various databases such as PostgreSQL, MySQL, and SQLite. It includes support for connection pooling, configurable logging, and YAML-based configuration.
+
+Features
+Supports multiple database drivers: PostgreSQL, MySQL, and SQLite.
+YAML configuration for database and connection pool settings.
+Built-in logging using zerolog.
+Easy-to-use interface for database operations.
+Connection pooling for optimal performance.
+Installation
+To use this package in your project, include it as a module in your go.mod file:
+
+bash
+Copy code
+go get github.com/your-repo/database
+Configuration
+The package requires a YAML configuration file to establish a database connection. Below is an example of the configuration file (config.yaml):
+
+yaml
+Copy code
+database:
+  driver: "postgres"             # Database driver (postgres, mysql, sqlite3)
+  host: "localhost"              # Database host
+  port: 5432                     # Database port
+  username: "your_username"      # Database username
+  password: "your_password"      # Database password
+  dbname: "your_database"        # Database name
+  sslmode: "disable"             # SSL mode (PostgreSQL only)
+  filepath: ""                   # Path to SQLite file (only for sqlite3)
+  log_level: "info"              # Logging level (debug, info, warn, error)
+  dbschema: "public"             # Schema name (PostgreSQL only)
+  pool:
+    max_open_conns: 10           # Maximum open connections
+    max_idle_conns: 5            # Maximum idle connections
+    conn_max_lifetime: "30m"     # Connection maximum lifetime (duration format)
+    conn_max_idle_time: "10m"    # Connection maximum idle time (duration format)
+Usage
+Create a Database Connection
+Here’s how to initialize a connection using the NewDatabaseConnection function:
+
+go
+Copy code
+package main
+
+import (
+	"log"
+
+	"github.com/your-repo/database"
+)
+
+func main() {
+	// Path to the YAML configuration file
+	configPath := "config.yaml"
+
+	// Create a new database connection
+	dbConn, err := database.NewDatabaseConnection(configPath)
+	if err != nil {
+		log.Fatalf("Failed to establish database connection: %v", err)
+	}
+	defer dbConn.Close()
+
+	// Test the connection
+	err = dbConn.DB.Ping()
+	if err != nil {
+		log.Fatalf("Database ping failed: %v", err)
+	}
+
+	log.Println("Database connection established successfully!")
+}
+Insert Data into a Database
+Once a connection is established, you can execute SQL statements:
+
+go
+Copy code
+query := "INSERT INTO your_table (column1, column2) VALUES ($1, $2)"
+_, err := dbConn.DB.Exec(query, "value1", "value2")
+if err != nil {
+	log.Fatalf("Failed to insert data: %v", err)
+}
+log.Println("Data inserted successfully!")
+Using Connection Pooling
+The connection pool is automatically configured based on the settings in the YAML file. You can customize parameters like max_open_conns and conn_max_lifetime to optimize performance for your application.
+
+Logging
+The package uses zerolog for logging. The logging level can be configured in the log_level field of the YAML file. Available levels are debug, info, warn, and error.
+
+Example Logs
+plaintext
+Copy code
+INFO: Database connection established successfully
+DEBUG: Query executed: INSERT INTO your_table
+ERROR: Database connection failed: invalid credentials
+Supported Database Drivers
+PostgreSQL: Use the lib/pq driver.
+MySQL: Use the go-sql-driver/mysql driver.
+SQLite: Use the mattn/go-sqlite3 driver.
