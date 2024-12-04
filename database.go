@@ -259,3 +259,178 @@ func (dc *DatabaseConnection) Exec(query string, args ...interface{}) (sql.Resul
 
 	return result, nil
 }
+#########################################################
+
+package database
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
+
+	// Database drivers
+	_ "github.com/lib/pq"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
+)
+
+type Config struct {
+	Database struct {
+		Driver   string `yaml:"driver"`
+		Host     string `yaml:"host"`
+		Port     int    `yaml:"port"`
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+		DBName   string `yaml:"dbname"`
+		SSLMode  string `yaml:"sslmode"`
+		Filepath string `yaml:"filepath"`
+		LogLevel string `yaml:"log_level"`
+		DBSchema string `yaml:"dbschema"`
+		Pool     struct {
+			MaxOpenConns    int    `yaml:"max_open_conns"`
+			MaxIdleConns    int    `yaml:"max_idle_conns"`
+			ConnMaxLifetime string `yaml:"conn_max_lifetime"`
+			ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
+		} `yaml:"pool"`
+	} `yaml:"database"`
+}
+
+type DatabaseConnection struct {
+	DB     *sql.DB
+	Config *Config
+	Logger zerolog.Logger
+}
+
+func NewDatabaseConnection(configPath string) (*DatabaseConnection, error) {
+	config, err := readConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config: %v", err)
+	}
+
+	logger := setupLogger(config.Database.LogLevel)
+	logger.Info().Msg("Initializing database connection")
+
+	dsn, err := buildConnectionString(config)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to build connection string")
+		return nil, err
+	}
+
+	db, err := sql.Open(config.Database.Driver, dsn)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to open database connection")
+		return nil, err
+	}
+
+	if err := configureConnectionPool(db, config); err != nil {
+		logger.Error().Err(err).Msg("Failed to configure connection pool")
+		return nil, err
+	}
+
+	if err := pingDatabase(db, logger); err != nil {
+		logger.Error().Err(err).Msg("Database connection ping failed")
+		return nil, err
+	}
+
+	logger.Info().Str("driver", config.Database.Driver).Msg("Database connection established")
+	return &DatabaseConnection{DB: db, Config: config, Logger: logger}, nil
+}
+
+func readConfig(configPath string) (*Config, error) {
+	absPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve config path: %v", err)
+	}
+
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %v", err)
+	}
+
+	return &config, nil
+}
+
+func buildConnectionString(config *Config) (string, error) {
+	switch config.Database.Driver {
+	case "postgres":
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=%s",
+			config.Database.Host, config.Database.Port, config.Database.Username, config.Database.Password,
+			config.Database.DBName, config.Database.SSLMode, config.Database.DBSchema), nil
+	case "mysql":
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			config.Database.Username, config.Database.Password, config.Database.Host, config.Database.Port, config.Database.DBName), nil
+	case "sqlite3":
+		return config.Database.Filepath, nil
+	default:
+		return "", fmt.Errorf("unsupported database driver: %s", config.Database.Driver)
+	}
+}
+
+func configureConnectionPool(db *sql.DB, config *Config) error {
+	connMaxLifetime := parseDurationOrDefault(config.Database.Pool.ConnMaxLifetime, "30m")
+	connMaxIdleTime := parseDurationOrDefault(config.Database.Pool.ConnMaxIdleTime, "15m")
+
+	db.SetMaxOpenConns(config.Database.Pool.MaxOpenConns)
+	db.SetMaxIdleConns(config.Database.Pool.MaxIdleConns)
+	db.SetConnMaxLifetime(connMaxLifetime)
+	db.SetConnMaxIdleTime(connMaxIdleTime)
+
+	return nil
+}
+
+func parseDurationOrDefault(value, defaultValue string) time.Duration {
+	if value == "" {
+		value = defaultValue
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		d, _ = time.ParseDuration(defaultValue)
+	}
+	return d
+}
+
+func pingDatabase(db *sql.DB, logger zerolog.Logger) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("database ping failed: %v", err)
+	}
+
+	return nil
+}
+
+func setupLogger(level string) zerolog.Logger {
+	switch level {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		log.Warn().Str("provided_level", level).Msg("Invalid log level, defaulting to info")
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
+	return zerolog.New(os.Stdout).With().Timestamp().Logger()
+}
+
+func (dc *DatabaseConnection) Close() error {
+	dc.Logger.Info().Msg("Closing database connection")
+	return dc.DB.Close()
+}
